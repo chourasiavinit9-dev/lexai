@@ -78,7 +78,7 @@ export default function HomePage() {
   const [compareResult, setCompareResult] = useState<CompareOutput | null>(null);
   const [navigateResult, setNavigateResult] = useState<NavigateOutput | null>(null);
   const [clauseForChat, setClauseForChat] = useState<string | undefined>(undefined);
-  const [docTextForUnderstand] = useState<string>('');
+  const [docTextForUnderstand, setDocTextForUnderstand] = useState<string>('');
 
   function switchTab(id: FeatureMode | string) {
     setTab(id as FeatureMode);
@@ -97,11 +97,14 @@ export default function HomePage() {
 
   useEffect(() => {
     const handleSwitch = (e: Event) => {
-      const targetTab = (e as CustomEvent).detail;
-      if (targetTab) {
-        setTab(targetTab as FeatureMode);
-        setTimeout(() => document.getElementById('tool')?.scrollIntoView({ behavior: 'smooth' }), 50);
+      const detail = (e as CustomEvent).detail;
+      if (typeof detail === 'string') {
+        setTab(detail as FeatureMode);
+      } else if (detail && typeof detail === 'object') {
+        if ('tab' in detail && detail.tab) setTab(detail.tab as FeatureMode);
+        if ('text' in detail && typeof detail.text === 'string') setDocTextForUnderstand(detail.text);
       }
+      setTimeout(() => document.getElementById('tool')?.scrollIntoView({ behavior: 'smooth' }), 50);
     };
     window.addEventListener('switch-tab', handleSwitch);
 
