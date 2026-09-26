@@ -1,7 +1,13 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { RISK_META, FAVORABILITY_META, LEGAL_SEVERITY_META, CONSTITUTIONAL_META } from '@/lib/constants';
+import {
+  RISK_META,
+  getRiskMeta,
+  getFavorabilityMeta,
+  getLegalSeverityMeta,
+  getConstitutionalMeta,
+} from '@/lib/constants';
 import type { Clause, LegalConcern, ConstitutionalCheck } from '@/lib/types';
 import type { UnderstandOutput } from '@/lib/validators';
 import { saveClause } from '@/lib/firestore';
@@ -94,8 +100,8 @@ function ClauseCard({
   readonly onAskClause: (text: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const risk = RISK_META[clause.riskLevel];
-  const fav = FAVORABILITY_META[clause.favorability];
+  const risk = getRiskMeta(clause?.riskLevel);
+  const fav = getFavorabilityMeta(clause?.favorability);
 
   const clauseSummary = `${clause.title}\n\nOriginal text: ${clause.originalText}\n\nWhat it means: ${clause.whatItMeans}\n\nWho it favors: ${clause.favorabilityReason}`;
 
@@ -162,7 +168,7 @@ function ClauseCard({
 
 // ── Legal concern ────────────────────────────────────────────
 function LegalConcernCard({ concern }: { readonly concern: LegalConcern }) {
-  const sev = LEGAL_SEVERITY_META[concern.severity];
+  const sev = getLegalSeverityMeta(concern?.severity);
   const citationText = `${concern.clauseReference}\n\nWhat it claims: ${concern.whatTheClauseClaims}\n\nWhy it's questionable: ${concern.whyItsQuestionable}\n\nWhat Indian law actually says: ${concern.relevantIndianLaw}\n\nStatute: ${concern.statuteReference}`;
   return (
     <article className="clause-item" style={{ borderLeft: `3px solid ${sev.color}` }} aria-label={concern.clauseReference}>
@@ -187,7 +193,7 @@ function LegalConcernCard({ concern }: { readonly concern: LegalConcern }) {
 
 // ── Constitutional panel ─────────────────────────────────────
 function ConstitutionalPanel({ check }: { readonly check: ConstitutionalCheck }) {
-  const meta = CONSTITUTIONAL_META[check.overallAssessment];
+  const meta = getConstitutionalMeta(check?.overallAssessment);
   return (
     <section className="panel" aria-labelledby="const-h">
       <div className="panel-head">
@@ -229,12 +235,12 @@ function ConstitutionalPanel({ check }: { readonly check: ConstitutionalCheck })
 
 // ── Risk Overview card ───────────────────────────────────────
 function RiskOverviewCard({ data }: { readonly data: UnderstandOutput }) {
-  const risk = RISK_META[data.overallRisk];
+  const risk = getRiskMeta(data?.overallRisk);
   const levels: Array<keyof typeof RISK_META> = ['safe', 'caution', 'risky', 'critical'];
-  const levelIndex = levels.indexOf(data.overallRisk);
-  const pct = Math.round(((levelIndex + 1) / 4) * 100);
+  const levelIndex = levels.indexOf(data?.overallRisk as keyof typeof RISK_META);
+  const pct = Math.round(((Math.max(0, levelIndex) + 1) / 4) * 100);
 
-  const counts = data.keyClauses.reduce<Record<string, number>>((acc, c) => {
+  const counts = (data?.keyClauses || []).reduce<Record<string, number>>((acc, c) => {
     acc[c.riskLevel] = (acc[c.riskLevel] ?? 0) + 1;
     return acc;
   }, {});
@@ -251,11 +257,11 @@ function RiskOverviewCard({ data }: { readonly data: UnderstandOutput }) {
         <div className="risk-bar-track">
           <div className="risk-bar-fill" style={{ width: `${pct}%`, background: risk.color }} />
         </div>
-        <span className="risk-bar-label" style={{ color: risk.color }}>{data.overallRisk.toUpperCase()}</span>
+        <span className="risk-bar-label" style={{ color: risk.color }}>{data.overallRisk ? data.overallRisk.toUpperCase() : 'REVIEW'}</span>
       </div>
       <div className="risk-counts">
         {Object.entries(counts).map(([level, n]) => {
-          const m = RISK_META[level as keyof typeof RISK_META];
+          const m = getRiskMeta(level);
           return (
             <div key={level} className="risk-count-chip" style={{ color: m.color, background: m.bg, border: `1px solid ${m.border}` }}>
               <span className="risk-count-n">{n}</span>
@@ -264,7 +270,7 @@ function RiskOverviewCard({ data }: { readonly data: UnderstandOutput }) {
           );
         })}
         <div className="risk-count-chip" style={{ color: 'var(--slate)', background: 'var(--gray-100)', border: '1px solid var(--border)' }}>
-          <span className="risk-count-n">{data.keyClauses.length}</span>
+          <span className="risk-count-n">{data?.keyClauses?.length || 0}</span>
           <span className="risk-count-l">Total clauses</span>
         </div>
       </div>
@@ -274,7 +280,7 @@ function RiskOverviewCard({ data }: { readonly data: UnderstandOutput }) {
 
 // ── Doc overview card ────────────────────────────────────────
 function DocOverviewCard({ data }: { readonly data: UnderstandOutput }) {
-  const risk = RISK_META[data.overallRisk];
+  const risk = getRiskMeta(data?.overallRisk);
   const copyText = `${data.documentType}\n\nSummary: ${data.oneSentenceSummary}\n\n${data.whatThisDocumentDoes}\n\nOverall balance: ${data.favorabilitySummary}`;
   return (
     <div className="doc-card">

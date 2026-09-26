@@ -8,15 +8,48 @@ import {
 
 // ─── Risk / Category enums ────────────────────────────────────
 
-const RiskLevelSchema = z.enum(['safe', 'caution', 'risky', 'critical']);
-const ClauseCategorySchema = z.enum([
+const RiskLevelSchema = z.preprocess((val) => {
+  const norm = String(val || '').toLowerCase().trim();
+  if (norm === 'low' || norm === 'safe') return 'safe';
+  if (norm === 'caution' || norm === 'moderate' || norm === 'medium' || norm === 'warning') return 'caution';
+  if (norm === 'risky' || norm === 'high') return 'risky';
+  if (norm === 'critical' || norm === 'severe' || norm === 'extreme') return 'critical';
+  return 'caution';
+}, z.enum(['safe', 'caution', 'risky', 'critical']));
+
+const ClauseCategorySchema = z.preprocess((val) => {
+  const norm = String(val || '').toLowerCase().trim().replace(/[\s-]+/g, '_');
+  const valid = ['payment', 'termination', 'liability', 'confidentiality', 'intellectual_property', 'dispute_resolution', 'warranty', 'indemnification'];
+  return valid.includes(norm) ? norm : 'other';
+}, z.enum([
   'payment', 'termination', 'liability', 'confidentiality',
   'intellectual_property', 'dispute_resolution', 'warranty',
   'indemnification', 'other',
-]);
-const FavorabilitySchema = z.enum(['favors_you', 'favors_other_party', 'balanced']);
-const LegalConcernSeveritySchema = z.enum(['note', 'questionable', 'likely_unenforceable']);
-const ConstitutionalConcernLevelSchema = z.enum(['none', 'potential_conflict', 'likely_conflict']);
+]));
+
+const FavorabilitySchema = z.preprocess((val) => {
+  const norm = String(val || '').toLowerCase().trim();
+  if (norm.includes('you') || norm === 'favors_you' || norm === 'favorable') return 'favors_you';
+  if (norm.includes('other') || norm === 'favors_other_party' || norm === 'unfavorable') return 'favors_other_party';
+  return 'balanced';
+}, z.enum(['favors_you', 'favors_other_party', 'balanced']));
+
+const LegalConcernSeveritySchema = z.preprocess((val) => {
+  const norm = String(val || '').toLowerCase().trim();
+  if (norm === 'note' || norm === 'low' || norm === 'info' || norm === 'minor') return 'note';
+  if (norm === 'questionable' || norm === 'medium' || norm === 'moderate' || norm === 'warning') return 'questionable';
+  if (norm === 'likely_unenforceable' || norm === 'unenforceable' || norm === 'critical' || norm === 'high' || norm === 'severe') return 'likely_unenforceable';
+  return 'note';
+}, z.enum(['note', 'questionable', 'likely_unenforceable']));
+
+const ConstitutionalConcernLevelSchema = z.preprocess((val) => {
+  const norm = String(val || '').toLowerCase().trim();
+  if (norm === 'none' || norm === 'pass' || norm === 'safe' || norm === 'no_conflict') return 'none';
+  if (norm === 'potential_conflict' || norm === 'warn' || norm === 'review' || norm === 'moderate' || norm === 'caution') return 'potential_conflict';
+  if (norm === 'likely_conflict' || norm === 'conflict' || norm === 'violation' || norm === 'high' || norm === 'critical') return 'likely_conflict';
+  return 'none';
+}, z.enum(['none', 'potential_conflict', 'likely_conflict']));
+
 const ClarifyQuestionTypeSchema = z.enum(['plain_english', 'risks', 'obligations', 'negotiation_tips']);
 
 // ─── Input schemas ────────────────────────────────────────────

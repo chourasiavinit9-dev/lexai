@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { APP_TABS, SAMPLE_QUESTIONS } from '@/lib/constants';
 import type { FeatureMode } from '@/lib/types';
-import type { UnderstandOutput, ClarifyOutput, CompareOutput, NavigateOutput, OCROutput } from '@/lib/validators';
+import type { UnderstandOutput, ClarifyOutput, CompareOutput, NavigateOutput } from '@/lib/validators';
 import { UnderstandPanel } from '@/components/UnderstandPanel';
 import { ClarifyPanel } from '@/components/ClarifyPanel';
 import { ComparePanel } from '@/components/ComparePanel';
@@ -12,8 +12,6 @@ import { PremiumChatPanel } from '@/components/PremiumChatPanel';
 import { FloatingChatButton } from '@/components/FloatingChatButton';
 import { TaskManager } from '@/components/TaskManager';
 import { Dashboard } from '@/components/Dashboard';
-
-type AnyResult = UnderstandOutput | ClarifyOutput | CompareOutput | NavigateOutput | OCROutput | null;
 
 const DEMO_TERMINATION_CLAUSE = `Either party may terminate this agreement with seven (7) days written notice, however all payment obligations of the second party shall continue through the end of the current billing cycle, notwithstanding any termination.`;
 
@@ -75,13 +73,15 @@ export default function HomePage() {
   const [tab, setTab] = useState<FeatureMode>('dashboard');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<AnyResult>(null);
+  const [understandResult, setUnderstandResult] = useState<UnderstandOutput | null>(null);
+  const [clarifyResult, setClarifyResult] = useState<ClarifyOutput | null>(null);
+  const [compareResult, setCompareResult] = useState<CompareOutput | null>(null);
+  const [navigateResult, setNavigateResult] = useState<NavigateOutput | null>(null);
   const [clauseForChat, setClauseForChat] = useState<string | undefined>(undefined);
   const [docTextForUnderstand] = useState<string>('');
 
   function switchTab(id: FeatureMode | string) {
     setTab(id as FeatureMode);
-    setResult(null);
     setError(null);
     // Sync nav active state
     if (typeof window !== 'undefined') {
@@ -451,34 +451,71 @@ export default function HomePage() {
           </div>
 
           {/* Panels */}
-          {APP_TABS.map(t => (
-            <section
-              key={t.id}
-              id={`panel-${t.id}`}
-              role="tabpanel"
-              aria-labelledby={`tab-${t.id}`}
-              hidden={tab !== t.id}
-            >
-              {t.id === 'dashboard'  && <Dashboard onSwitchTab={switchTab} />}
-              {t.id === 'understand' && (
-                <UnderstandPanel
-                  onResult={d => setResult(d)}
-                  onLoading={setIsLoading}
-                  onError={setError}
-                  onAskClause={handleAskClause}
-                  result={result as UnderstandOutput | null}
-                  isLoading={isLoading}
-                  error={error}
-                  initialText={docTextForUnderstand}
-                />
-              )}
-              {t.id === 'clarify'   && <ClarifyPanel   onResult={d => setResult(d)} onLoading={setIsLoading} onError={setError} result={result as ClarifyOutput  | null} isLoading={isLoading} error={error} />}
-              {t.id === 'compare'   && <ComparePanel    onResult={d => setResult(d)} onLoading={setIsLoading} onError={setError} result={result as CompareOutput  | null} isLoading={isLoading} error={error} />}
-              {t.id === 'navigate'  && <NavigatePanel   onResult={d => setResult(d)} onLoading={setIsLoading} onError={setError} result={result as NavigateOutput | null} isLoading={isLoading} error={error} />}
-              {t.id === 'chat'      && <PremiumChatPanel initialMessage={clauseForChat} onInitialMessageConsumed={() => setClauseForChat(undefined)} />}
-              {t.id === 'tasks'     && <TaskManager />}
+          {tab === 'dashboard' && (
+            <section id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard">
+              <Dashboard onSwitchTab={switchTab} />
             </section>
-          ))}
+          )}
+          {tab === 'understand' && (
+            <section id="panel-understand" role="tabpanel" aria-labelledby="tab-understand">
+              <UnderstandPanel
+                onResult={d => setUnderstandResult(d)}
+                onLoading={setIsLoading}
+                onError={setError}
+                onAskClause={handleAskClause}
+                result={understandResult}
+                isLoading={isLoading}
+                error={error}
+                initialText={docTextForUnderstand}
+              />
+            </section>
+          )}
+          {tab === 'clarify' && (
+            <section id="panel-clarify" role="tabpanel" aria-labelledby="tab-clarify">
+              <ClarifyPanel
+                onResult={d => setClarifyResult(d)}
+                onLoading={setIsLoading}
+                onError={setError}
+                result={clarifyResult}
+                isLoading={isLoading}
+                error={error}
+              />
+            </section>
+          )}
+          {tab === 'compare' && (
+            <section id="panel-compare" role="tabpanel" aria-labelledby="tab-compare">
+              <ComparePanel
+                onResult={d => setCompareResult(d)}
+                onLoading={setIsLoading}
+                onError={setError}
+                result={compareResult}
+                isLoading={isLoading}
+                error={error}
+              />
+            </section>
+          )}
+          {tab === 'navigate' && (
+            <section id="panel-navigate" role="tabpanel" aria-labelledby="tab-navigate">
+              <NavigatePanel
+                onResult={d => setNavigateResult(d)}
+                onLoading={setIsLoading}
+                onError={setError}
+                result={navigateResult}
+                isLoading={isLoading}
+                error={error}
+              />
+            </section>
+          )}
+          {tab === 'chat' && (
+            <section id="panel-chat" role="tabpanel" aria-labelledby="tab-chat">
+              <PremiumChatPanel initialMessage={clauseForChat} onInitialMessageConsumed={() => setClauseForChat(undefined)} />
+            </section>
+          )}
+          {tab === 'tasks' && (
+            <section id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks">
+              <TaskManager />
+            </section>
+          )}
         </div>
       </section>
 

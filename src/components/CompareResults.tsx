@@ -1,6 +1,6 @@
 'use client';
 
-import { RISK_META } from '@/lib/constants';
+import { getRiskMeta } from '@/lib/constants';
 import type { CompareOutput, DifferenceItem } from '@/lib/validators';
 
 function VerdictCard({ data, labelA, labelB }: { readonly data: CompareOutput; readonly labelA: string; readonly labelB: string }) {
@@ -18,7 +18,7 @@ function VerdictCard({ data, labelA, labelB }: { readonly data: CompareOutput; r
 }
 
 function DiffRow({ diff, labelA, labelB }: { readonly diff: DifferenceItem; readonly labelA: string; readonly labelB: string }) {
-  const risk = RISK_META[diff.riskLevel];
+  const risk = getRiskMeta(diff?.riskLevel);
   return (
     <div className="diff-row" role="listitem">
       <div className="diff-topic-bar">

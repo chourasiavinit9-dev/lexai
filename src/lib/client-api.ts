@@ -107,16 +107,6 @@ async function withRetryAndFallback<T>(
 
 // ─── UNDERSTAND ───────────────────────────────────────────────
 export async function clientUnderstand(input: UnderstandInput): Promise<UnderstandOutput> {
-  // Try static API route first (no-op on Firebase Hosting static export)
-  try {
-    const res = await fetch('/api/understand', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    });
-    if (res.ok) return (await res.json()) as UnderstandOutput;
-  } catch { /* static hosting — no API routes */ }
-
   const validated = UnderstandInputSchema.parse(input);
 
   return withRetryAndFallback(
@@ -133,15 +123,6 @@ export async function clientUnderstand(input: UnderstandInput): Promise<Understa
 
 // ─── CLARIFY ──────────────────────────────────────────────────
 export async function clientClarify(input: ClarifyInput): Promise<ClarifyOutput> {
-  try {
-    const res = await fetch('/api/clarify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    });
-    if (res.ok) return (await res.json()) as ClarifyOutput;
-  } catch { /* static hosting */ }
-
   const validated = ClarifyInputSchema.parse(input);
 
   return withRetryAndFallback(
@@ -158,15 +139,6 @@ export async function clientClarify(input: ClarifyInput): Promise<ClarifyOutput>
 
 // ─── COMPARE ──────────────────────────────────────────────────
 export async function clientCompare(input: CompareInput): Promise<CompareOutput> {
-  try {
-    const res = await fetch('/api/compare', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    });
-    if (res.ok) return (await res.json()) as CompareOutput;
-  } catch { /* static hosting */ }
-
   const validated = CompareInputSchema.parse(input);
 
   return withRetryAndFallback(
@@ -183,15 +155,6 @@ export async function clientCompare(input: CompareInput): Promise<CompareOutput>
 
 // ─── NAVIGATE ─────────────────────────────────────────────────
 export async function clientNavigate(input: NavigateInput): Promise<NavigateOutput> {
-  try {
-    const res = await fetch('/api/navigate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    });
-    if (res.ok) return (await res.json()) as NavigateOutput;
-  } catch { /* static hosting */ }
-
   const validated = NavigateInputSchema.parse(input);
 
   return withRetryAndFallback(
@@ -208,15 +171,6 @@ export async function clientNavigate(input: NavigateInput): Promise<NavigateOutp
 
 // ─── CHAT ─────────────────────────────────────────────────────
 export async function clientChat(input: ChatInput): Promise<ChatOutput> {
-  try {
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    });
-    if (res.ok) return (await res.json()) as ChatOutput;
-  } catch { /* static hosting */ }
-
   const validated = ChatInputSchema.parse(input);
 
   return withRetryAndFallback(

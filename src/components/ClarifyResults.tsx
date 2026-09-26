@@ -1,18 +1,18 @@
 'use client';
 
-import { FAVORABILITY_META, LEGAL_SEVERITY_META } from '@/lib/constants';
+import { getFavorabilityMeta, getLegalSeverityMeta } from '@/lib/constants';
 import type { LegalConcern } from '@/lib/types';
 import type { ClarifyOutput } from '@/lib/validators';
 
 function InterpretationCard({ data }: { readonly data: ClarifyOutput }) {
-  const fav = FAVORABILITY_META[data.favorability];
+  const fav = getFavorabilityMeta(data?.favorability);
   return (
     <div className="clarify-interpretation">
       <p style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem' }}>
         What this clause means
       </p>
-      <p style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>{data.clauseSummary}</p>
-      <p style={{ fontSize: '0.9rem', lineHeight: '1.75' }}>{data.interpretation}</p>
+      <p style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>{data?.clauseSummary || 'Clause Summary'}</p>
+      <p style={{ fontSize: '0.9rem', lineHeight: '1.75' }}>{data?.interpretation || ''}</p>
       <div style={{ marginTop: '1rem' }}>
         <span
           className="risk-badge"
@@ -22,7 +22,7 @@ function InterpretationCard({ data }: { readonly data: ClarifyOutput }) {
           {fav.label}
         </span>
         <p style={{ fontSize: '0.8125rem', color: 'rgba(255,255,255,0.65)', marginTop: '0.5rem', lineHeight: '1.6' }}>
-          {data.favorabilityReason}
+          {data?.favorabilityReason || ''}
         </p>
       </div>
     </div>
@@ -62,7 +62,7 @@ function PotentialRisksPanel({ risks }: { readonly risks: string[] }) {
 }
 
 function ClarifyLegalConcernCard({ concern }: { readonly concern: LegalConcern }) {
-  const sev = LEGAL_SEVERITY_META[concern.severity];
+  const sev = getLegalSeverityMeta(concern?.severity);
   return (
     <article className="clause-item" style={{ borderLeft: `3px solid ${sev.color}` }}>
       <div style={{ padding: '0.875rem 1rem' }}>

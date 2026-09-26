@@ -23,11 +23,28 @@ export const RISK_META = {
   critical: { label: 'Critical', color: '#c93636', bg: '#fef2f2', border: '#fca5a5' },
 } as const;
 
+export function getRiskMeta(risk?: string | null): { label: string; color: string; bg: string; border: string } {
+  const norm = (risk || '').toLowerCase().trim();
+  if (norm === 'safe' || norm === 'low') return RISK_META.safe;
+  if (norm === 'caution' || norm === 'moderate' || norm === 'medium' || norm === 'warning') return RISK_META.caution;
+  if (norm === 'risky' || norm === 'high') return RISK_META.risky;
+  if (norm === 'critical' || norm === 'severe' || norm === 'extreme') return RISK_META.critical;
+  return RISK_META.caution;
+}
+
 export const FAVORABILITY_META = {
   favors_you:         { label: 'Favors you',       color: '#16805b', bg: '#f0fdf4', border: '#86efac' },
   favors_other_party: { label: 'Favors other party', color: '#c2410c', bg: '#fff7ed', border: '#fdba74' },
   balanced:           { label: 'Balanced',          color: '#183b68', bg: '#f5f6f7', border: '#d9dee5' },
 } as const;
+
+export function getFavorabilityMeta(fav?: string | null): { label: string; color: string; bg: string; border: string } {
+  const norm = (fav || '').toLowerCase().trim();
+  if (norm.includes('you') || norm === 'favors_you' || norm === 'favorable') return FAVORABILITY_META.favors_you;
+  if (norm.includes('other') || norm === 'favors_other_party' || norm === 'unfavorable') return FAVORABILITY_META.favors_other_party;
+  if (norm === 'balanced' || norm === 'neutral' || norm === 'equal' || norm === 'mutual' || norm === 'unclear') return FAVORABILITY_META.balanced;
+  return FAVORABILITY_META.balanced;
+}
 
 export const LEGAL_SEVERITY_META = {
   note:                   { label: 'Worth noting',        color: '#9a6007', bg: '#fefce8', border: '#fde047' },
@@ -35,11 +52,27 @@ export const LEGAL_SEVERITY_META = {
   likely_unenforceable:   { label: 'Likely unenforceable', color: '#c93636', bg: '#fef2f2', border: '#fca5a5' },
 } as const;
 
+export function getLegalSeverityMeta(sev?: string | null): { label: string; color: string; bg: string; border: string } {
+  const norm = (sev || '').toLowerCase().trim();
+  if (norm === 'note' || norm === 'low' || norm === 'info' || norm === 'minor') return LEGAL_SEVERITY_META.note;
+  if (norm === 'questionable' || norm === 'medium' || norm === 'moderate' || norm === 'warning') return LEGAL_SEVERITY_META.questionable;
+  if (norm === 'likely_unenforceable' || norm === 'unenforceable' || norm === 'critical' || norm === 'high' || norm === 'severe') return LEGAL_SEVERITY_META.likely_unenforceable;
+  return LEGAL_SEVERITY_META.note;
+}
+
 export const CONSTITUTIONAL_META = {
   none:                { label: 'No conflict found',     color: '#16805b', bg: '#f0fdf4', border: '#86efac' },
   potential_conflict:  { label: 'Potential conflict',     color: '#9a6007', bg: '#fefce8', border: '#fde047' },
   likely_conflict:     { label: 'Likely conflict',        color: '#c93636', bg: '#fef2f2', border: '#fca5a5' },
 } as const;
+
+export function getConstitutionalMeta(c?: string | null): { label: string; color: string; bg: string; border: string } {
+  const norm = (c || '').toLowerCase().trim();
+  if (norm === 'none' || norm === 'pass' || norm === 'safe' || norm === 'no_conflict') return CONSTITUTIONAL_META.none;
+  if (norm === 'potential_conflict' || norm === 'warn' || norm === 'review' || norm === 'moderate' || norm === 'caution') return CONSTITUTIONAL_META.potential_conflict;
+  if (norm === 'likely_conflict' || norm === 'conflict' || norm === 'violation' || norm === 'high' || norm === 'critical') return CONSTITUTIONAL_META.likely_conflict;
+  return CONSTITUTIONAL_META.none;
+}
 
 export const READING_LEVELS = [
   { id: 'simple',   label: 'Simple' },
