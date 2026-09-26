@@ -1,4 +1,5 @@
 import { GEMINI_MODEL, GEMINI_API_BASE, MAX_TOKENS, TEMPERATURE } from './constants';
+import { callOpenRouter } from './openrouter';
 import type { UnderstandInput, CompareInput, NavigateInput, ChatInput, ClarifyInput } from './validators';
 
 
@@ -36,7 +37,6 @@ it as settled fact. You are providing legal INFORMATION, not legal ADVICE, and y
 substitute for a licensed advocate — say this only where the schema asks for a disclaimer,
 do not repeat it in every field.`;
 
-import { callOpenRouter } from './openrouter';
 
 
 /** Internal: call Gemini directly. Returns null on any error (rate limit, quota, missing key etc)
