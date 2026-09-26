@@ -35,12 +35,12 @@ interface OpenRouterResponse {
 /** Core OpenRouter call — server-side only */
 export async function callOpenRouter(
   messages: OpenRouterMessage[],
-  opts: { maxTokens?: number; temperature?: number; jsonMode?: boolean } = {}
+  opts: { maxTokens?: number; temperature?: number; jsonMode?: boolean; model?: string } = {}
 ): Promise<string> {
   const apiKey = requireOpenRouterKey();
 
   const body: Record<string, unknown> = {
-    model: CLAUDE_MODEL,
+    model: opts.model ?? CLAUDE_MODEL,
     messages,
     max_tokens: opts.maxTokens ?? 4096,
     temperature: opts.temperature ?? 0.15,

@@ -1,6 +1,6 @@
 import { GEMINI_MODEL, GEMINI_API_BASE, MAX_TOKENS, TEMPERATURE } from './constants';
-import { requireGeminiApiKey } from './env';
 import type { UnderstandInput, CompareInput, NavigateInput, ChatInput, ClarifyInput } from './validators';
+
 
 type GeminiPart = { text: string };
 type GeminiCandidate = { content: { parts: GeminiPart[] } };
@@ -36,32 +36,68 @@ it as settled fact. You are providing legal INFORMATION, not legal ADVICE, and y
 substitute for a licensed advocate — say this only where the schema asks for a disclaimer,
 do not repeat it in every field.`;
 
-async function callGemini(prompt: string): Promise<string> {
-  const apiKey = requireGeminiApiKey();
-  const url = `${GEMINI_API_BASE}/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: TEMPERATURE,
-        maxOutputTokens: MAX_TOKENS,
-        responseMimeType: 'application/json',
-      },
-    }),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    const err = new Error(`Gemini ${res.status}: ${body.slice(0, 200)}`);
-    (err as Error & { status?: number }).status = res.status;
-    throw err;
+import { callOpenRouter } from './openrouter';
+
+
+/** Internal: call Gemini directly. Returns null on any error (rate limit, quota, missing key etc)
+ *  so the caller can immediately fall through to OpenRouter. */
+async function tryGeminiDirect(prompt: string): Promise<string | null> {
+  try {
+    const key = (process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '').trim();
+    if (!key) return null;                           // no key → skip to OpenRouter
+
+    const url = `${GEMINI_API_BASE}/${GEMINI_MODEL}:generateContent?key=${key}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: TEMPERATURE,
+          maxOutputTokens: MAX_TOKENS,
+          responseMimeType: 'application/json',
+        },
+      }),
+    });
+
+    // 429 / 5xx → return null so caller uses OpenRouter
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as GeminiResponse;
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    return text ?? null;
+  } catch {
+    return null;   // network error → fall through to OpenRouter
   }
-  const data = (await res.json()) as GeminiResponse;
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error('Empty Gemini response');
-  return text;
 }
+
+/** OpenRouter fallback: tries Gemini Flash first, then Claude */
+async function callOpenRouterFallback(prompt: string): Promise<string> {
+  // First: try Gemini 2.0 Flash via OpenRouter (free tier)
+  try {
+    const result = await callOpenRouter(
+      [{ role: 'user', content: prompt }],
+      { maxTokens: MAX_TOKENS, temperature: TEMPERATURE, jsonMode: true, model: 'google/gemini-2.0-flash-exp:free' }
+    );
+    return result;
+  } catch { /* fall through to Claude */ }
+
+  // Second: Claude via OpenRouter
+  return callOpenRouter(
+    [{ role: 'user', content: prompt }],
+    { maxTokens: MAX_TOKENS, temperature: TEMPERATURE, jsonMode: true }
+  );
+}
+
+/** Primary entry point — tries Gemini first, auto-falls back to OpenRouter on any error */
+async function callGemini(prompt: string): Promise<string> {
+  const geminiResult = await tryGeminiDirect(prompt);
+  if (geminiResult) return geminiResult;
+
+  // Gemini unavailable (rate limit, quota, missing key) → OpenRouter
+  return callOpenRouterFallback(prompt);
+}
+
 
 export async function geminiUnderstand(input: UnderstandInput): Promise<string> {
   const levelGuide: Record<string, string> = {
