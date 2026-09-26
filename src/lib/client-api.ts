@@ -34,6 +34,14 @@ import {
 } from './gemini';
 import { callOpenRouter, extractJSON, type OpenRouterContentPart } from './openrouter';
 import { retrieveProvisions, retrieveSection, retrieveArticle } from './legal-corpus';
+import { clientCache, createCacheKey } from './client-cache';
+import {
+  sanitizeDocumentText,
+  sanitizeShortText,
+  validateLegalRelevance,
+  validateFilePayload,
+  checkRateLimit,
+} from './sanitize';
 
 /** Safe JSON parse helper that handles markdown code fences */
 function parseJsonPayload<T>(raw: string, schema: { parse: (val: unknown) => T }): T {
@@ -118,64 +126,152 @@ async function withRetryAndFallback<T>(
 export async function clientUnderstand(input: UnderstandInput): Promise<UnderstandOutput> {
   const validated = UnderstandInputSchema.parse(input);
 
-  return withRetryAndFallback(
-    async () => parseJsonPayload(await geminiUnderstand(validated), UnderstandOutputSchema),
-    async () => {
-      const raw = await callOpenRouter(
-        [{ role: 'user', content: `You are LAWJOURNEY AI. Analyze this Indian legal document and return ONLY valid JSON matching the UnderstandOutput schema.\n\nDocument:\n${validated.documentText}\n\nRole: ${validated.userRole || 'general reader'}\nLevel: ${validated.readingLevel}` }],
-        { maxTokens: 4096, temperature: 0.1 }
-      );
-      return parseJsonPayload(raw, UnderstandOutputSchema);
+  // 1. Anti-DDoS rate and payload check
+  checkRateLimit(validated.documentText.length);
+
+  // 2. Comprehensive XSS & document sanitization
+  const { sanitized, phishingAlerts } = sanitizeDocumentText(validated.documentText);
+
+  // 3. Unrelated text & spam / gibberish detection
+  const relevance = validateLegalRelevance(sanitized);
+  if (!relevance.isLegal) {
+    throw new Error(relevance.reason || 'The text does not appear to be a legal document or contract.');
+  }
+
+  // 4. In-Memory LRU Cache & Request Coalescing (0ms repeat latency)
+  const cacheKey = createCacheKey('understand', {
+    text: sanitized,
+    level: validated.readingLevel,
+    role: validated.userRole || '',
+  });
+
+  return clientCache.coalesce(cacheKey, async () => {
+    const preparedInput: UnderstandInput = {
+      ...validated,
+      documentText: sanitized,
+    };
+
+    const result = await withRetryAndFallback(
+      async () => parseJsonPayload(await geminiUnderstand(preparedInput), UnderstandOutputSchema),
+      async () => {
+        const raw = await callOpenRouter(
+          [{ role: 'user', content: `You are LAWJOURNEY AI. Analyze this Indian legal document and return ONLY valid JSON matching the UnderstandOutput schema.\n\nDocument:\n${preparedInput.documentText}\n\nRole: ${preparedInput.userRole || 'general reader'}\nLevel: ${preparedInput.readingLevel}` }],
+          { maxTokens: 4096, temperature: 0.1 }
+        );
+        return parseJsonPayload(raw, UnderstandOutputSchema);
+      }
+    );
+
+    // If phishing indicators or digital arrest patterns were detected, prepend them to redFlags
+    if (phishingAlerts.length > 0) {
+      result.redFlags = [...phishingAlerts, ...result.redFlags];
     }
-  );
+
+    return result;
+  });
 }
 
 // ─── CLARIFY ──────────────────────────────────────────────────
 export async function clientClarify(input: ClarifyInput): Promise<ClarifyOutput> {
   const validated = ClarifyInputSchema.parse(input);
 
-  return withRetryAndFallback(
-    async () => parseJsonPayload(await geminiClarify(validated), ClarifyOutputSchema),
-    async () => {
-      const raw = await callOpenRouter(
-        [{ role: 'user', content: `You are LAWJOURNEY AI. Clarify this Indian legal clause (question type: ${validated.questionType}) and return ONLY valid JSON matching the ClarifyOutput schema.\n\nClause:\n${validated.clauseText}\n\nContext: ${validated.context || 'none'}` }],
-        { maxTokens: 2048, temperature: 0.1 }
-      );
-      return parseJsonPayload(raw, ClarifyOutputSchema);
-    }
-  );
+  checkRateLimit(validated.clauseText.length);
+
+  const cleanClause = sanitizeShortText(validated.clauseText, 5000);
+  const cleanContext = sanitizeShortText(validated.context || '', 1000);
+
+  const cacheKey = createCacheKey('clarify', {
+    clause: cleanClause,
+    type: validated.questionType,
+    ctx: cleanContext,
+  });
+
+  return clientCache.coalesce(cacheKey, async () => {
+    const preparedInput: ClarifyInput = {
+      ...validated,
+      clauseText: cleanClause,
+      context: cleanContext,
+    };
+
+    return withRetryAndFallback(
+      async () => parseJsonPayload(await geminiClarify(preparedInput), ClarifyOutputSchema),
+      async () => {
+        const raw = await callOpenRouter(
+          [{ role: 'user', content: `You are LAWJOURNEY AI. Clarify this Indian legal clause (question type: ${preparedInput.questionType}) and return ONLY valid JSON matching the ClarifyOutput schema.\n\nClause:\n${preparedInput.clauseText}\n\nContext: ${preparedInput.context || 'none'}` }],
+          { maxTokens: 2048, temperature: 0.1 }
+        );
+        return parseJsonPayload(raw, ClarifyOutputSchema);
+      }
+    );
+  });
 }
 
 // ─── COMPARE ──────────────────────────────────────────────────
 export async function clientCompare(input: CompareInput): Promise<CompareOutput> {
   const validated = CompareInputSchema.parse(input);
 
-  return withRetryAndFallback(
-    async () => parseJsonPayload(await geminiCompare(validated), CompareOutputSchema),
-    async () => {
-      const raw = await callOpenRouter(
-        [{ role: 'user', content: `You are LAWJOURNEY AI. Compare these two Indian legal documents and return ONLY valid JSON matching the CompareOutput schema.\n\nVersion A:\n${validated.documentA}\n\nVersion B:\n${validated.documentB}` }],
-        { maxTokens: 4096, temperature: 0.1 }
-      );
-      return parseJsonPayload(raw, CompareOutputSchema);
-    }
-  );
+  checkRateLimit(validated.documentA.length + validated.documentB.length);
+
+  const cleanA = sanitizeDocumentText(validated.documentA).sanitized;
+  const cleanB = sanitizeDocumentText(validated.documentB).sanitized;
+
+  const cacheKey = createCacheKey('compare', {
+    a: cleanA,
+    b: cleanB,
+    persp: validated.userPerspective || '',
+  });
+
+  return clientCache.coalesce(cacheKey, async () => {
+    const preparedInput: CompareInput = {
+      ...validated,
+      documentA: cleanA,
+      documentB: cleanB,
+    };
+
+    return withRetryAndFallback(
+      async () => parseJsonPayload(await geminiCompare(preparedInput), CompareOutputSchema),
+      async () => {
+        const raw = await callOpenRouter(
+          [{ role: 'user', content: `You are LAWJOURNEY AI. Compare these two Indian legal documents and return ONLY valid JSON matching the CompareOutput schema.\n\nVersion A:\n${preparedInput.documentA}\n\nVersion B:\n${preparedInput.documentB}` }],
+          { maxTokens: 4096, temperature: 0.1 }
+        );
+        return parseJsonPayload(raw, CompareOutputSchema);
+      }
+    );
+  });
 }
 
 // ─── NAVIGATE ─────────────────────────────────────────────────
 export async function clientNavigate(input: NavigateInput): Promise<NavigateOutput> {
   const validated = NavigateInputSchema.parse(input);
 
-  return withRetryAndFallback(
-    async () => parseJsonPayload(await geminiNavigate(validated), NavigateOutputSchema),
-    async () => {
-      const raw = await callOpenRouter(
-        [{ role: 'user', content: `You are LAWJOURNEY AI. Navigate this Indian legal document for the user's goal and return ONLY valid JSON matching the NavigateOutput schema.\n\nDocument:\n${validated.documentText}\n\nGoal: ${validated.userGoal}` }],
-        { maxTokens: 3000, temperature: 0.1 }
-      );
-      return parseJsonPayload(raw, NavigateOutputSchema);
-    }
-  );
+  checkRateLimit(validated.documentText.length);
+
+  const cleanDoc = sanitizeDocumentText(validated.documentText).sanitized;
+  const cleanGoal = sanitizeShortText(validated.userGoal, 1000);
+
+  const cacheKey = createCacheKey('navigate', {
+    doc: cleanDoc,
+    goal: cleanGoal,
+  });
+
+  return clientCache.coalesce(cacheKey, async () => {
+    const preparedInput: NavigateInput = {
+      documentText: cleanDoc,
+      userGoal: cleanGoal,
+    };
+
+    return withRetryAndFallback(
+      async () => parseJsonPayload(await geminiNavigate(preparedInput), NavigateOutputSchema),
+      async () => {
+        const raw = await callOpenRouter(
+          [{ role: 'user', content: `You are LAWJOURNEY AI. Navigate this Indian legal document for the user's goal and return ONLY valid JSON matching the NavigateOutput schema.\n\nDocument:\n${preparedInput.documentText}\n\nGoal: ${preparedInput.userGoal}` }],
+          { maxTokens: 3000, temperature: 0.1 }
+        );
+        return parseJsonPayload(raw, NavigateOutputSchema);
+      }
+    );
+  });
 }
 
 // ─── CHAT ─────────────────────────────────────────────────────
@@ -210,6 +306,18 @@ export async function clientOcr(input: OCRInput): Promise<OCROutput> {
   } catch { /* static hosting */ }
 
   const validatedInput = OCRInputSchema.parse(input);
+
+  // Malware & Trojan attachment protection
+  if (validatedInput.imageBase64) {
+    const fileSecurity = validateFilePayload(
+      'document_upload',
+      validatedInput.mimeType || 'image/png',
+      validatedInput.imageBase64
+    );
+    if (!fileSecurity.isValid) {
+      throw new Error(fileSecurity.error || 'Security alert: Unsafe file attachment detected.');
+    }
+  }
 
   // 1. Legal corpus retrieval
   const searchText = validatedInput.pastedText ?? 'contract legal notice agreement';
