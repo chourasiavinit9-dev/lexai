@@ -93,13 +93,16 @@ async function withRetryAndFallback<T>(
   try {
     return await fallbackFn();
   } catch (fallbackErr) {
-    // Both providers failed — throw a friendly error
-    const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
+    // If both providers failed — surface the most informative error
+    const msg = (lastErr instanceof Error ? lastErr.message : String(lastErr)) || '';
     if (msg.includes('503') || msg.includes('unavailable') || msg.includes('high demand')) {
       throw new Error('AI service is temporarily busy — please try again in 30 seconds. Your document is safe.');
     }
-    if (msg.includes('429') || msg.includes('quota')) {
-      throw new Error('Usage limit reached — please try again in a minute.');
+    if (msg.includes('429') || msg.includes('quota') || msg.includes('limit')) {
+      throw new Error('AI usage limit reached — please try again in a few moments.');
+    }
+    if (msg && !msg.includes('OpenRouter') && !msg.includes('failed to fetch')) {
+      throw new Error(msg);
     }
     throw new Error('Could not reach the AI service. Please check your connection and try again.');
   }

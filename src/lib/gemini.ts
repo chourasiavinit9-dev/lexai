@@ -43,8 +43,14 @@ async function callGemini(prompt: string): Promise<string> {
   const key = (process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '').trim();
   if (!key) throw new Error('Gemini API key not configured.');
 
-  // Primary model with auto-fallback to secondary flash model
-  const models = [GEMINI_MODEL, 'gemini-3.8-flash'];
+  // Cascading fallback across working Google models to eliminate 429/503 spikes
+  const models = [
+    GEMINI_MODEL,
+    'gemini-3.6-flash',
+    'gemini-3.5-flash-lite',
+    'gemini-3.1-flash-lite',
+    'gemini-3.5-flash',
+  ];
   let lastErr = '';
 
   for (const model of models) {
