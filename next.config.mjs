@@ -13,7 +13,7 @@ const nextConfig = {
             "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
             "img-src 'self' data: blob:",
-            "connect-src 'self' https://generativelanguage.googleapis.com",
+            "connect-src 'self' https://generativelanguage.googleapis.com https://openrouter.ai https://api.bodhan.ai https://firestore.googleapis.com https://identitytoolkit.googleapis.com",
             "font-src 'self' https://fonts.gstatic.com",
             "frame-ancestors 'none'",
           ].join('; '),

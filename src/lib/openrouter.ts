@@ -1,8 +1,9 @@
 
 const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
 const CLAUDE_MODEL = 'anthropic/claude-opus-4-5';
-const SITE_URL = 'https://lawjourney.ai';
+const SITE_URL = 'https://lawjourney-ai-2026.web.app';
 const SITE_NAME = 'LawJourney AI';
+
 
 function requireOpenRouterKey(): string {
   const key = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY;
