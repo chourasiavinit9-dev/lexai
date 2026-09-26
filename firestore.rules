@@ -1,0 +1,198 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ══════════════════════════════════════════════════════════
+    // LAWJOURNEY AI — Firestore Security Rules v2
+    // Architecture: users/{userId}/{conversations|documents|analyses|savedClauses|tasks}
+    // Auth: Anonymous Firebase Auth — each user owns only their data
+    // ══════════════════════════════════════════════════════════
+
+    // Default deny — nothing accessible unless explicitly allowed
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ── User root ─────────────────────────────────────────────
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      // ── Conversations ───────────────────────────────────────
+      match /conversations/{convId} {
+        allow read:   if isOwner(userId);
+        allow create: if isOwner(userId) && validConversation(request.resource.data);
+        allow update: if isOwner(userId) && validConversationUpdate(request.resource.data);
+        allow delete: if isOwner(userId);
+
+        // Message subcollection
+        match /messages/{msgId} {
+          allow read:   if isOwner(userId);
+          allow create: if isOwner(userId) && validMessage(request.resource.data);
+          allow update: if false; // messages are immutable
+          allow delete: if isOwner(userId);
+        }
+      }
+
+      // ── Documents (metadata only — no file bytes) ───────────
+      match /documents/{docId} {
+        allow read:   if isOwner(userId);
+        allow create: if isOwner(userId) && validDocument(request.resource.data);
+        allow update: if isOwner(userId) && validDocumentUpdate(request.resource.data);
+        allow delete: if isOwner(userId);
+
+        // Per-document analyses
+        match /analyses/{analysisId} {
+          allow read:   if isOwner(userId);
+          allow create: if isOwner(userId) && validAnalysis(request.resource.data);
+          allow update: if false; // analyses are immutable
+          allow delete: if isOwner(userId);
+        }
+
+        // Per-document clauses
+        match /clauses/{clauseId} {
+          allow read:   if isOwner(userId);
+          allow create: if isOwner(userId) && validClause(request.resource.data);
+          allow update: if isOwner(userId);
+          allow delete: if isOwner(userId);
+        }
+
+        // Per-page OCR (large documents only)
+        match /ocrPages/{pageId} {
+          allow read:   if isOwner(userId);
+          allow create: if isOwner(userId);
+          allow update: if false;
+          allow delete: if isOwner(userId);
+        }
+      }
+
+      // ── Top-level analyses (cross-document) ──────────────────
+      match /analyses/{analysisId} {
+        allow read:   if isOwner(userId);
+        allow create: if isOwner(userId) && validAnalysis(request.resource.data);
+        allow update: if false;
+        allow delete: if isOwner(userId);
+      }
+
+      // ── Saved Clauses (snapshots) ────────────────────────────
+      match /savedClauses/{clauseId} {
+        allow read:   if isOwner(userId);
+        allow create: if isOwner(userId) && validSavedClause(request.resource.data);
+        allow update: if isOwner(userId) && validSavedClauseUpdate(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      // ── Task Checklist ────────────────────────────────────────
+      match /tasks/{taskId} {
+        allow read:   if isOwner(userId);
+        allow create: if isOwner(userId) && validTask(request.resource.data);
+        allow update: if isOwner(userId) && validTaskUpdate(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      // ── Profile / Preferences ────────────────────────────────
+      match /profile/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // HELPER FUNCTIONS
+    // ══════════════════════════════════════════════════════════
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function strMax(field, n) {
+      return field is string && field.size() <= n;
+    }
+
+    // Conversation
+    function validConversation(d) {
+      return d.keys().hasAll(['title', 'messageCount', 'lastMessage', 'model', 'createdAt', 'updatedAt'])
+        && strMax(d.title, 200)
+        && strMax(d.model, 50)
+        && d.messageCount is int;
+    }
+    function validConversationUpdate(d) {
+      return (!('lastMessage' in d) || strMax(d.lastMessage, 200))
+        && (!('messageCount' in d) || d.messageCount is int);
+    }
+
+    // Message
+    function validMessage(d) {
+      return d.keys().hasAll(['role', 'content', 'createdAt'])
+        && d.role in ['user', 'assistant']
+        && strMax(d.content, 50000);
+    }
+
+    // Document metadata (no binary data)
+    function validDocument(d) {
+      return d.keys().hasAll(['fileName', 'fileType', 'storagePath', 'ocrStatus', 'createdAt'])
+        && strMax(d.fileName, 255)
+        && strMax(d.storagePath, 500)
+        && d.ocrStatus in ['pending', 'processing', 'completed', 'failed']
+        // CRITICAL: no binary data allowed
+        && !('fileBytes' in d)
+        && !('fileData' in d)
+        && !('base64' in d);
+    }
+    function validDocumentUpdate(d) {
+      return !('fileBytes' in d) && !('fileData' in d) && !('base64' in d)
+        && (!('ocrStatus' in d) || d.ocrStatus in ['pending', 'processing', 'completed', 'failed'])
+        && (!('ocrText' in d) || strMax(d.ocrText, 100000));
+    }
+
+    // Analysis
+    function validAnalysis(d) {
+      return d.keys().hasAll(['type', 'status', 'model', 'createdAt'])
+        && d.type in ['understand', 'clarify', 'compare', 'navigate', 'ocr', 'risk', 'before_you_sign']
+        && d.status in ['pending', 'completed', 'failed']
+        && strMax(d.model, 50)
+        && (!('inputSnippet' in d) || strMax(d.inputSnippet, 500))
+        && (!('summary' in d)      || strMax(d.summary, 5000));
+    }
+
+    // Clause
+    function validClause(d) {
+      return d.keys().hasAll(['clauseText', 'title', 'category', 'favorability', 'riskLevel', 'verificationStatus', 'createdAt'])
+        && strMax(d.clauseText, 5000)
+        && strMax(d.title, 200)
+        && d.favorability in ['favors_you', 'favors_other_party', 'neutral', 'unclear']
+        && d.riskLevel in ['safe', 'caution', 'risky', 'critical']
+        && d.verificationStatus in ['verified', 'partial', 'unverified'];
+    }
+
+    // Saved clause (snapshot)
+    function validSavedClause(d) {
+      return d.keys().hasAll(['clauseText', 'title', 'category', 'favorability', 'riskLevel', 'verificationStatus', 'createdAt'])
+        && strMax(d.clauseText, 5000)
+        && strMax(d.title, 200)
+        && d.favorability in ['favors_you', 'favors_other_party', 'neutral', 'unclear']
+        && d.riskLevel in ['safe', 'caution', 'risky', 'critical']
+        && (!('notes' in d) || strMax(d.notes, 2000));
+    }
+    function validSavedClauseUpdate(d) {
+      return d.keys().hasOnly(['notes', 'updatedAt'])
+        && (!('notes' in d) || strMax(d.notes, 2000));
+    }
+
+    // Task
+    function validTask(d) {
+      return d.keys().hasAll(['title', 'status', 'priority', 'category', 'createdAt', 'updatedAt'])
+        && strMax(d.title, 200)
+        && d.status in ['todo', 'in_progress', 'done', 'flagged']
+        && d.priority in ['low', 'normal', 'high', 'critical']
+        && d.category in ['review', 'verify', 'negotiate', 'sign', 'consult', 'other']
+        && (!('description' in d) || strMax(d.description, 1000))
+        && (!('notes' in d)       || strMax(d.notes, 2000))
+        && (!('legalRef' in d)    || strMax(d.legalRef, 100));
+    }
+    function validTaskUpdate(d) {
+      return (!('status' in d)   || d.status   in ['todo', 'in_progress', 'done', 'flagged'])
+        && (!('priority' in d) || d.priority in ['low', 'normal', 'high', 'critical'])
+        && (!('notes' in d)    || strMax(d.notes, 2000));
+    }
+  }
+}

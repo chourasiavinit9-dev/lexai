@@ -1,0 +1,194 @@
+.lj-ruibo {
+  --ruibo-navy: #10284a;
+  --ruibo-gold: #c99a3e;
+  --ruibo-cream: #f7f0de;
+  --ruibo-border: #d9dee5;
+
+  display: inline-flex;
+  min-width: 150px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--ruibo-navy);
+}
+
+.lj-ruibo__stage {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  display: grid;
+  place-items: center;
+}
+
+.lj-ruibo__halo {
+  position: absolute;
+  inset: 26px;
+  border-radius: 999px;
+  background: radial-gradient(
+    circle,
+    rgba(247, 240, 222, 0.92) 0%,
+    rgba(247, 240, 222, 0.5) 48%,
+    rgba(247, 240, 222, 0) 72%
+  );
+  transform: scale(0.96);
+  transition: transform 500ms ease, opacity 500ms ease;
+}
+
+.lj-ruibo__robot {
+  position: relative;
+  z-index: 1;
+  width: 150px;
+  height: 150px;
+  display: grid;
+  place-items: center;
+  transform-origin: 50% 80%;
+}
+
+.lj-ruibo__image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 12px 18px rgba(16, 24, 40, 0.12));
+}
+
+/* Real chat states */
+.lj-ruibo--idle .lj-ruibo__robot {
+  animation: ruibo-breathe 4.8s ease-in-out infinite;
+}
+
+.lj-ruibo--idle .lj-ruibo__halo {
+  opacity: 0.55;
+}
+
+.lj-ruibo--listening .lj-ruibo__robot,
+.lj-ruibo--responding .lj-ruibo__robot {
+  animation: ruibo-attentive 1.8s ease-in-out infinite;
+}
+
+.lj-ruibo--thinking .lj-ruibo__robot,
+.lj-ruibo--analysing .lj-ruibo__robot,
+.lj-ruibo--clarifying .lj-ruibo__robot {
+  animation: ruibo-think 1.7s ease-in-out infinite;
+}
+
+.lj-ruibo--thinking .lj-ruibo__halo,
+.lj-ruibo--analysing .lj-ruibo__halo {
+  opacity: 0.9;
+  transform: scale(1.04);
+}
+
+.lj-ruibo--success .lj-ruibo__robot {
+  animation: ruibo-success 700ms cubic-bezier(.2,.8,.2,1) both;
+}
+
+.lj-ruibo--error .lj-ruibo__robot {
+  animation: ruibo-error 500ms ease-out both;
+}
+
+.lj-ruibo--low-battery .lj-ruibo__robot {
+  animation: ruibo-fade 1.6s ease-in-out infinite;
+}
+
+.lj-ruibo__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  margin-top: -2px;
+  padding: 7px 11px;
+  border: 1px solid var(--ruibo-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 5px 18px rgba(16, 24, 40, 0.05);
+  font: 600 11px/1.2 Inter, system-ui, sans-serif;
+  letter-spacing: 0.01em;
+}
+
+.lj-ruibo__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ruibo-gold);
+}
+
+.lj-ruibo--success .lj-ruibo__dot {
+  background: #16805b;
+}
+
+.lj-ruibo--error .lj-ruibo__dot {
+  background: #c93636;
+}
+
+.lj-ruibo--compact {
+  min-width: 100px;
+}
+
+.lj-ruibo--compact .lj-ruibo__stage {
+  width: 112px;
+  height: 112px;
+}
+
+.lj-ruibo--compact .lj-ruibo__robot {
+  width: 96px;
+  height: 96px;
+}
+
+.lj-ruibo--compact .lj-ruibo__status {
+  font-size: 10px;
+  padding: 6px 9px;
+}
+
+.lj-ruibo--reduced-motion *,
+.lj-ruibo--reduced-motion *::before,
+.lj-ruibo--reduced-motion *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+@keyframes ruibo-breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-3px) scale(1.012); }
+}
+
+@keyframes ruibo-attentive {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-2px) rotate(-1deg); }
+}
+
+@keyframes ruibo-think {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  35% { transform: translateY(-3px) rotate(-2deg); }
+  70% { transform: translateY(-1px) rotate(2deg); }
+}
+
+@keyframes ruibo-success {
+  0% { transform: translateY(8px) scale(.94); opacity: .5; }
+  65% { transform: translateY(-5px) scale(1.035); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes ruibo-error {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px) rotate(-1deg); }
+  75% { transform: translateX(3px) rotate(1deg); }
+}
+
+@keyframes ruibo-fade {
+  0%, 100% { opacity: .72; }
+  50% { opacity: 1; }
+}
+
+@media (max-width: 640px) {
+  .lj-ruibo__stage {
+    width: 142px;
+    height: 142px;
+  }
+
+  .lj-ruibo__robot {
+    width: 124px;
+    height: 124px;
+  }
+}
