@@ -2,7 +2,7 @@
 // LexAI — All magic values live here. Never hardcode elsewhere.
 // ────────────────────────────────────────────────────────────
 
-export const GEMINI_MODEL = 'gemini-3.8-flash' as const;
+export const GEMINI_MODEL = 'gemini-3.1-flash-lite' as const;
 export const GEMINI_API_BASE =
   'https://generativelanguage.googleapis.com/v1beta/models' as const;
 export const MAX_TOKENS = 8192 as const;

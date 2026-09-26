@@ -83,11 +83,7 @@ async function resolveOutput<TSchema extends ZodTypeAny, TOutSchema extends ZodT
         };
       }
     } else {
-      // No buildPrompt — surface the original error
-      return {
-        status: 502,
-        body: { error: 'AI service is temporarily unavailable. Please try again.' },
-      };
+      throw primaryErr;
     }
   }
 

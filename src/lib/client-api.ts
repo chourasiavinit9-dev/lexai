@@ -30,6 +30,7 @@ import {
   geminiCompare,
   geminiNavigate,
   geminiChat,
+  geminiOcr,
 } from './gemini';
 import { callOpenRouter, extractJSON, type OpenRouterContentPart } from './openrouter';
 import { retrieveProvisions, retrieveSection, retrieveArticle } from './legal-corpus';
@@ -72,7 +73,7 @@ function sleep(ms: number): Promise<void> {
 async function withRetryAndFallback<T>(
   primaryFn: () => Promise<T>,
   fallbackFn: () => Promise<T>,
-  maxRetries = 3,
+  maxRetries = 2,
 ): Promise<T> {
   let lastErr: unknown;
 
@@ -81,31 +82,36 @@ async function withRetryAndFallback<T>(
       return await primaryFn();
     } catch (err) {
       lastErr = err;
-      if (!isRetryable(err)) break;            // non-retryable — go straight to fallback
+      if (!isRetryable(err)) break;            // non-retryable — skip retries
       if (attempt < maxRetries - 1) {
         await sleep(backoffMs(attempt));         // wait before next attempt
       }
     }
   }
 
-  // Gemini failed — try OpenRouter as backup
-  console.warn('[LawJourney] Gemini unavailable, switching to backup AI provider…', lastErr);
-  try {
-    return await fallbackFn();
-  } catch (fallbackErr) {
-    // If both providers failed — surface the most informative error
-    const msg = (lastErr instanceof Error ? lastErr.message : String(lastErr)) || '';
-    if (msg.includes('503') || msg.includes('unavailable') || msg.includes('high demand')) {
-      throw new Error('AI service is temporarily busy — please try again in 30 seconds. Your document is safe.');
+  // If a secondary provider key is configured and valid, attempt fallback
+  const openRouterKey = (process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY || '').trim();
+  if (openRouterKey && !openRouterKey.startsWith('sk-wb')) {
+    console.warn('[LawJourney] Gemini cascade exhausted, attempting backup provider…', lastErr);
+    try {
+      return await fallbackFn();
+    } catch (fallbackErr) {
+      console.warn('[LawJourney] Backup provider also failed:', fallbackErr);
     }
-    if (msg.includes('429') || msg.includes('quota') || msg.includes('limit')) {
-      throw new Error('AI usage limit reached — please try again in a few moments.');
-    }
-    if (msg && !msg.includes('OpenRouter') && !msg.includes('failed to fetch')) {
-      throw new Error(msg);
-    }
-    throw new Error('Could not reach the AI service. Please check your connection and try again.');
   }
+
+  // Surface clear, actionable error messaging based on the root cause
+  const msg = (lastErr instanceof Error ? lastErr.message : String(lastErr)) || '';
+  if (msg.includes('503') || msg.includes('unavailable') || msg.includes('high demand')) {
+    throw new Error('AI service is temporarily busy — please try again in 30 seconds. Your document is safe.');
+  }
+  if (msg.includes('429') || msg.includes('quota') || msg.includes('limit')) {
+    throw new Error('AI usage limit reached — please try again in a few moments.');
+  }
+  if (msg && !msg.includes('OpenRouter') && !msg.includes('failed to fetch')) {
+    throw new Error(msg);
+  }
+  throw new Error('Could not reach the AI service. Please check your connection and try again.');
 }
 
 // ─── UNDERSTAND ───────────────────────────────────────────────
@@ -284,24 +290,22 @@ Return ONLY the JSON response:`;
   }
   contentParts.push({ type: 'text', text: promptText });
 
-  // OCR always uses OpenRouter (vision model) with retry
+  // Primary: Gemini native OCR with optional image attachment
+  // Fallback: OpenRouter vision/chat
   return withRetryAndFallback(
+    async () => {
+      const fullPrompt = `${SYSTEM_PROMPT}\n\n${promptText}`;
+      const imagePart = validatedInput.imageBase64 && validatedInput.mimeType
+        ? { mimeType: validatedInput.mimeType, data: validatedInput.imageBase64 }
+        : undefined;
+      const raw = await geminiOcr(fullPrompt, imagePart);
+      return parseJsonPayload(raw, OCROutputSchema);
+    },
     async () => {
       const raw = await callOpenRouter(
         [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: contentParts },
-        ],
-        { maxTokens: 4096, temperature: 0.1 }
-      );
-      return parseJsonPayload(raw, OCROutputSchema);
-    },
-    async () => {
-      // Retry with text-only if vision fails
-      const raw = await callOpenRouter(
-        [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: [{ type: 'text', text: promptText }] },
         ],
         { maxTokens: 4096, temperature: 0.1 }
       );

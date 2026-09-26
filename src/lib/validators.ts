@@ -27,28 +27,9 @@ const ClauseCategorySchema = z.preprocess((val) => {
   'indemnification', 'other',
 ]));
 
-const FavorabilitySchema = z.preprocess((val) => {
-  const norm = String(val || '').toLowerCase().trim();
-  if (norm.includes('you') || norm === 'favors_you' || norm === 'favorable') return 'favors_you';
-  if (norm.includes('other') || norm === 'favors_other_party' || norm === 'unfavorable') return 'favors_other_party';
-  return 'balanced';
-}, z.enum(['favors_you', 'favors_other_party', 'balanced']));
-
-const LegalConcernSeveritySchema = z.preprocess((val) => {
-  const norm = String(val || '').toLowerCase().trim();
-  if (norm === 'note' || norm === 'low' || norm === 'info' || norm === 'minor') return 'note';
-  if (norm === 'questionable' || norm === 'medium' || norm === 'moderate' || norm === 'warning') return 'questionable';
-  if (norm === 'likely_unenforceable' || norm === 'unenforceable' || norm === 'critical' || norm === 'high' || norm === 'severe') return 'likely_unenforceable';
-  return 'note';
-}, z.enum(['note', 'questionable', 'likely_unenforceable']));
-
-const ConstitutionalConcernLevelSchema = z.preprocess((val) => {
-  const norm = String(val || '').toLowerCase().trim();
-  if (norm === 'none' || norm === 'pass' || norm === 'safe' || norm === 'no_conflict') return 'none';
-  if (norm === 'potential_conflict' || norm === 'warn' || norm === 'review' || norm === 'moderate' || norm === 'caution') return 'potential_conflict';
-  if (norm === 'likely_conflict' || norm === 'conflict' || norm === 'violation' || norm === 'high' || norm === 'critical') return 'likely_conflict';
-  return 'none';
-}, z.enum(['none', 'potential_conflict', 'likely_conflict']));
+const FavorabilitySchema = z.enum(['favors_you', 'favors_other_party', 'balanced']);
+const LegalConcernSeveritySchema = z.enum(['note', 'questionable', 'likely_unenforceable']);
+const ConstitutionalConcernLevelSchema = z.enum(['none', 'potential_conflict', 'likely_conflict']);
 
 const ClarifyQuestionTypeSchema = z.enum(['plain_english', 'risks', 'obligations', 'negotiation_tips']);
 
@@ -234,7 +215,37 @@ export const VerificationStatusSchema = z.enum([
   'VERSION_CHECK_REQUIRED',
 ]);
 
-export const LegalReferenceSchema = z.object({
+export const LegalReferenceSchema = z.preprocess((val) => {
+  if (typeof val === 'string') {
+    return {
+      type: 'section',
+      act: val,
+      description: val,
+      verificationStatus: 'NOT_VERIFIED',
+      confidence: 'medium',
+    };
+  }
+  if (val && typeof val === 'object') {
+    const obj = val as Record<string, unknown>;
+    const rawType = String(obj.type || 'other').toLowerCase();
+    const type = ['section', 'article', 'act', 'case', 'other'].includes(rawType) ? rawType : 'other';
+    const rawStatus = String(obj.verificationStatus || 'NOT_VERIFIED').toUpperCase();
+    const statusList = ['VERIFIED', 'PARTIALLY_VERIFIED', 'NOT_VERIFIED', 'POSSIBLE_OCR_ERROR', 'VERSION_CHECK_REQUIRED'];
+    const verificationStatus = statusList.includes(rawStatus) ? rawStatus : 'NOT_VERIFIED';
+    const rawConf = String(obj.confidence || 'medium').toLowerCase();
+    const confidence = ['high', 'medium', 'low'].includes(rawConf) ? rawConf : 'medium';
+
+    return {
+      ...obj,
+      type,
+      act: String(obj.act || obj.name || obj.shortName || 'Indian Law'),
+      description: String(obj.description || obj.summary || obj.act || 'Legal provision'),
+      verificationStatus,
+      confidence,
+    };
+  }
+  return val;
+}, z.object({
   type: z.enum(['section', 'article', 'act', 'case', 'other']),
   act: z.string(),
   shortName: z.string().optional(),
@@ -245,7 +256,7 @@ export const LegalReferenceSchema = z.object({
   verifiedText: z.string().optional(),
   verifiedSource: z.string().optional(),
   confidence: z.enum(['high', 'medium', 'low']),
-});
+}));
 
 export const OCRInputSchema = z.object({
   /** base64-encoded image OR raw pasted text */
@@ -256,7 +267,26 @@ export const OCRInputSchema = z.object({
   message: 'Either imageBase64 or pastedText is required.',
 });
 
-export const OCROutputSchema = z.object({
+export const OCROutputSchema = z.preprocess((val) => {
+  if (val && typeof val === 'object') {
+    const obj = val as Record<string, unknown>;
+    const rawConf = String(obj.ocrConfidence || 'high').toLowerCase();
+    const confList = ['high', 'medium', 'low', 'not_applicable'];
+    const ocrConfidence = confList.includes(rawConf) ? rawConf : 'high';
+    return {
+      ...obj,
+      ocrConfidence,
+      documentType: String(obj.documentType || 'Legal Document'),
+      extractedText: String(obj.extractedText || ''),
+      summary: String(obj.summary || 'Document extracted successfully.'),
+      parties: Array.isArray(obj.parties) ? obj.parties.map(String) : [],
+      keyDates: Array.isArray(obj.keyDates) ? obj.keyDates.map(String) : [],
+      legalReferences: Array.isArray(obj.legalReferences) ? obj.legalReferences : [],
+      disclaimer: String(obj.disclaimer || 'This is legal information grounded in Indian law, not legal advice. Verify with a licensed advocate.'),
+    };
+  }
+  return val;
+}, z.object({
   documentType: z.string(),
   extractedText: z.string(),
   ocrConfidence: z.enum(['high', 'medium', 'low', 'not_applicable']),
@@ -266,7 +296,7 @@ export const OCROutputSchema = z.object({
   legalReferences: z.array(LegalReferenceSchema),
   summary: z.string(),
   disclaimer: z.string(),
-});
+}));
 
 export type OCRInput  = z.infer<typeof OCRInputSchema>;
 export type OCROutput = z.infer<typeof OCROutputSchema>;

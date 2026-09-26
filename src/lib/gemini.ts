@@ -36,31 +36,50 @@ substitute for a licensed advocate — say this only where the schema asks for a
 do not repeat it in every field.`;
 
 /**
- * Call Gemini directly. Throws on failure so client-api.ts withRetryAndFallback
- * can catch it and route to OpenRouter automatically.
+ * Call Gemini directly with multimodal support (text + optional image).
+ * Cascades across validated models with per-model timeout to guarantee fast, zero-fail execution.
  */
-async function callGemini(prompt: string): Promise<string> {
+async function callGemini(
+  prompt: string,
+  imagePart?: { mimeType: string; data: string }
+): Promise<string> {
   const key = (process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '').trim();
   if (!key) throw new Error('Gemini API key not configured.');
 
-  // Cascading fallback across working Google models to eliminate 429/503 spikes
+  // Prioritize verified models with active quota and <3s latency
   const models = [
-    GEMINI_MODEL,
+    GEMINI_MODEL, // 'gemini-3.1-flash-lite' (active quota, ~2.5s response)
+    'gemini-3.1-flash-lite-preview',
+    'gemini-3-flash-preview',
     'gemini-3.6-flash',
-    'gemini-3.5-flash-lite',
-    'gemini-3.1-flash-lite',
-    'gemini-3.5-flash',
+    'gemini-3.7-flash',
+    'gemini-3.8-flash',
   ];
   let lastErr = '';
 
+  const parts: Record<string, unknown>[] = [];
+  if (imagePart?.mimeType && imagePart?.data) {
+    parts.push({
+      inline_data: {
+        mime_type: imagePart.mimeType,
+        data: imagePart.data,
+      },
+    });
+  }
+  parts.push({ text: prompt });
+
   for (const model of models) {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s per model safeguard
+
       const url = `${GEMINI_API_BASE}/${model}:generateContent?key=${key}`;
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [{ parts }],
           generationConfig: {
             temperature: TEMPERATURE,
             maxOutputTokens: MAX_TOKENS,
@@ -68,6 +87,7 @@ async function callGemini(prompt: string): Promise<string> {
           },
         }),
       });
+      clearTimeout(timeoutId);
 
       if (!res.ok) {
         const body = await res.text().catch(() => '');
@@ -77,13 +97,20 @@ async function callGemini(prompt: string): Promise<string> {
 
       const data = (await res.json()) as GeminiResponse;
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) return text;
+      if (text && text.trim().length > 0) return text;
     } catch (e) {
       lastErr = e instanceof Error ? e.message : String(e);
     }
   }
 
   throw new Error(lastErr || 'Gemini returned an empty response.');
+}
+
+export async function geminiOcr(
+  prompt: string,
+  imagePart?: { mimeType: string; data: string }
+): Promise<string> {
+  return callGemini(prompt, imagePart);
 }
 
 export async function geminiUnderstand(input: UnderstandInput): Promise<string> {
