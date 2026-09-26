@@ -4,11 +4,19 @@ import type { ZodTypeAny, z } from 'zod';
 import { hashInput, getCache, setCache } from './cache';
 import { checkRateLimit, extractClientId, pruneStaleClients } from './rate-limit';
 import { log } from './logger';
+import { callWithFallback } from './ai-router';
+
+// Status codes where we fall back to the AI router instead of surfacing an error
+const RETRIABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 
 interface RouteOptions<TSchema extends ZodTypeAny, TOutSchema extends ZodTypeAny> {
   schema: TSchema;
   prefix: string;
+  /** The primary handler — must return a raw JSON string from Gemini or similar */
   handler: (input: z.infer<TSchema>) => Promise<string>;
+  /** Optional: a function that builds the full LLM prompt from the parsed input.
+   *  When provided, the router can re-run the prompt via callWithFallback on failure. */
+  buildPrompt?: (input: z.infer<TSchema>) => string;
   outputSchema: TOutSchema;
 }
 
@@ -38,7 +46,51 @@ async function resolveOutput<TSchema extends ZodTypeAny, TOutSchema extends ZodT
     return { status: 200, body: cached };
   }
 
-  const rawJson = await opts.handler(parsedData);
+  let rawJson: string;
+
+  // ── Primary: call the original handler (usually direct Gemini) ──
+  try {
+    rawJson = await opts.handler(parsedData);
+  } catch (primaryErr) {
+    const status = (primaryErr as Error & { status?: number }).status;
+    const isRetriable = status ? RETRIABLE_STATUSES.has(status) : true; // network errors are also retriable
+
+    log.warn(`${opts.prefix}_primary_failed`, {
+      status,
+      message: (primaryErr as Error).message,
+      retriable: String(isRetriable),
+    });
+
+    if (!isRetriable) {
+      // Auth errors, bad input etc — surface immediately
+      return {
+        status: status ?? 502,
+        body: { error: `AI service error: ${(primaryErr as Error).message}` },
+      };
+    }
+
+    // ── Fallback: re-route through ai-router (Gemini OR → Claude OR) ──
+    if (opts.buildPrompt) {
+      log.info(`${opts.prefix}_fallback_router`);
+      try {
+        rawJson = await callWithFallback(opts.buildPrompt(parsedData));
+        log.info(`${opts.prefix}_fallback_success`);
+      } catch (fallbackErr) {
+        log.error(`${opts.prefix}_fallback_failed`, { message: (fallbackErr as Error).message });
+        return {
+          status: 503,
+          body: { error: 'All AI providers are currently unavailable. Please try again shortly.' },
+        };
+      }
+    } else {
+      // No buildPrompt — surface the original error
+      return {
+        status: 502,
+        body: { error: 'AI service is temporarily unavailable. Please try again.' },
+      };
+    }
+  }
+
   const aiResult: unknown = JSON.parse(rawJson);
   const validated = opts.outputSchema.safeParse(aiResult);
 
@@ -87,3 +139,4 @@ export function makeRouteHandler<TSchema extends ZodTypeAny, TOutSchema extends 
     }
   };
 }
+

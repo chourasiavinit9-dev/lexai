@@ -54,6 +54,8 @@ export const CLARIFY_QUESTION_TYPES = [
   { id: 'negotiation_tips',  label: 'Negotiation Tips' },
 ] as const;
 
+// OCR is part of Analyze — not a standalone tab in primary navigation.
+// The 'ocr' FeatureMode still exists for internal routing/state management.
 export const APP_TABS = [
   {
     id: 'dashboard' as const,
@@ -64,17 +66,10 @@ export const APP_TABS = [
   },
   {
     id: 'understand' as const,
-    label: 'Understand a Document',
-    shortLabel: 'Understand',
-    description: 'Paste or upload any legal document or scan. Get a plain-English breakdown, who each clause favors, and flags for language that claims legal authority it may not have under Indian law.',
+    label: 'Analyze a Document',
+    shortLabel: 'Analyze',
+    description: 'Upload or paste any legal document. OCR extraction, plain-English breakdown, clause intelligence, risk analysis, favorability, and legal flags — all grounded in Indian statutes.',
     icon: '📄',
-  },
-  {
-    id: 'ocr' as const,
-    label: 'Scan & OCR Document',
-    shortLabel: 'Scan / OCR',
-    description: 'Upload a photo, scan, or PDF of any contract or notice. Extracts text via Bodhan AI Indic-OCR and verifies Indian statutory citations.',
-    icon: '📷',
   },
   {
     id: 'clarify' as const,
@@ -100,9 +95,9 @@ export const APP_TABS = [
   {
     id: 'chat' as const,
     label: 'Ask a Legal Question',
-    shortLabel: 'Ask',
+    shortLabel: 'Ask AI',
     description: 'Have a conversation about any legal topic or document. Ask follow-up questions naturally.',
-    icon: '💬',
+    icon: '✦',
   },
   {
     id: 'tasks' as const,

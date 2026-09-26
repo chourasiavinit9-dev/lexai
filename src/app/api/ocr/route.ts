@@ -2,6 +2,7 @@ import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
 import { OCRInputSchema, OCROutputSchema } from '@/lib/validators';
 import { callOpenRouter, extractJSON, type OpenRouterContentPart } from '@/lib/openrouter';
+import { ocrWithFallback } from '@/lib/ai-router';
 import { retrieveProvisions, retrieveSection, retrieveArticle } from '@/lib/legal-corpus';
 import { checkRateLimit, extractClientId, pruneStaleClients } from '@/lib/rate-limit';
 import { log } from '@/lib/logger';
@@ -126,23 +127,45 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ),
     ].join('\n\n---\n\n') || 'No specific provisions loaded. Flag uncertainty on all references.';
 
-    // 4. Build OpenRouter messages
-    const contentParts: OpenRouterContentPart[] = [];
+    // 4. If image provided — use Bodhan OCR with Gemini Vision fallback
+    let rawResponse: string;
 
     if (input.imageBase64 && input.mimeType) {
-      contentParts.push({
-        type: 'image_url',
-        image_url: { url: `data:${input.mimeType};base64,${input.imageBase64}` },
-      });
+      try {
+        const ocrResult = await ocrWithFallback(input.imageBase64, input.mimeType);
+        log.info('ocr_image_extracted', { provider: ocrResult.provider });
+        // Wrap OCR result in the expected JSON schema
+        const syntheticResult = {
+          documentType: 'Legal Document (OCR extracted)',
+          extractedText: ocrResult.extractedText,
+          ocrConfidence: 'high' as const,
+          parties: [],
+          keyDates: [],
+          legalReferences: [],
+          summary: `Text extracted via ${ocrResult.provider} (${ocrResult.model}).`,
+          disclaimer: 'This is legal information grounded in Indian law, not legal advice. Verify with a licensed advocate.',
+        };
+        const validated = OCROutputSchema.safeParse(syntheticResult);
+        if (validated.success) {
+          return NextResponse.json(validated.data);
+        }
+        // If schema validation fails, fall through to full OpenRouter analysis
+        log.warn('ocr_synthetic_invalid', { errors: validated.error.flatten() });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'OCR failed.';
+        log.error('ocr_image_failed', { message: msg });
+        return NextResponse.json({ error: msg }, { status: 502 });
+      }
     }
 
+    // 5. Build OpenRouter messages for text analysis (or re-analysis after OCR)
+    const contentParts: OpenRouterContentPart[] = [];
     contentParts.push({
       type: 'text',
       text: buildUserPrompt(input.pastedText, Boolean(input.imageBase64), corpusContext),
     });
 
-    // 5. Call Claude Opus via OpenRouter
-    let rawResponse: string;
+    // 6. Call Claude Opus via OpenRouter
     try {
       rawResponse = await callOpenRouter(
         [

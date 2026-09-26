@@ -47,8 +47,8 @@ export function UnderstandPanel({
   const [extractedSource, setExtractedSource] = useState<{ name: string; source: 'bodhan' | 'file' } | null>(null);
 
   useEffect(() => {
-    if (initialText && initialText !== text) {
-      setText(initialText);
+    if (initialText) {
+      setText(prev => (prev !== initialText ? initialText : prev));
     }
   }, [initialText]);
 

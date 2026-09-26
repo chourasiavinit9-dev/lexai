@@ -13,26 +13,26 @@ import {
 
 // ─── Status/priority configs ──────────────────────────────
 const STATUS_CONFIG: Record<TaskStatus, { label: string; icon: string; cls: string }> = {
-  todo:        { label: 'To Do',       icon: '○', cls: 'todo' },
+  todo: { label: 'To Do', icon: '○', cls: 'todo' },
   in_progress: { label: 'In Progress', icon: '◑', cls: 'in-progress' },
-  done:        { label: 'Done',        icon: '●', cls: 'done' },
-  flagged:     { label: 'Flagged',     icon: '⚑', cls: 'flagged' },
+  done: { label: 'Done', icon: '●', cls: 'done' },
+  flagged: { label: 'Flagged', icon: '⚑', cls: 'flagged' },
 };
 
 const PRIORITY_CONFIG: Record<TaskPriority, { label: string; cls: string }> = {
-  low:      { label: 'Low',      cls: 'low' },
-  normal:   { label: 'Normal',   cls: 'normal' },
-  high:     { label: 'High',     cls: 'high' },
+  low: { label: 'Low', cls: 'low' },
+  normal: { label: 'Normal', cls: 'normal' },
+  high: { label: 'High', cls: 'high' },
   critical: { label: 'Critical', cls: 'critical' },
 };
 
 const CATEGORY_OPTIONS = [
-  { value: 'review',    label: '📖 Review' },
-  { value: 'verify',   label: '✓ Verify' },
-  { value: 'negotiate',label: '⚖ Negotiate' },
-  { value: 'sign',     label: '✍ Sign' },
-  { value: 'consult',  label: '👤 Consult Advocate' },
-  { value: 'other',    label: '• Other' },
+  { value: 'review', label: '📖 Review' },
+  { value: 'verify', label: '✓ Verify' },
+  { value: 'negotiate', label: '⚖ Negotiate' },
+  { value: 'sign', label: '✍ Sign' },
+  { value: 'consult', label: '👤 Consult Advocate' },
+  { value: 'other', label: '• Other' },
 ] as const;
 
 // ─── Add Task Modal ───────────────────────────────────────
@@ -40,14 +40,14 @@ function AddTaskModal({ onClose, onAdd }: {
   readonly onClose: () => void;
   readonly onAdd: (t: Omit<LegalTask, 'id' | 'createdAt' | 'updatedAt' | 'completedAt'>) => Promise<void>;
 }) {
-  const [title, setTitle]         = useState('');
-  const [desc, setDesc]           = useState('');
-  const [priority, setPriority]   = useState<TaskPriority>('normal');
-  const [category, setCategory]   = useState<LegalTask['category']>('review');
-  const [legalRef, setLegalRef]   = useState('');
-  const [dueDate, setDueDate]     = useState('');
-  const [saving, setSaving]       = useState(false);
-  const [error, setError]         = useState('');
+  const [title, setTitle] = useState('');
+  const [desc, setDesc] = useState('');
+  const [priority, setPriority] = useState<TaskPriority>('normal');
+  const [category, setCategory] = useState<LegalTask['category']>('review');
+  const [legalRef, setLegalRef] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -150,7 +150,7 @@ function TaskCard({
   readonly onDelete: (id: string) => void;
 }) {
   const [deleting, setDeleting] = useState(false);
-  const status   = STATUS_CONFIG[task.status];
+  const status = STATUS_CONFIG[task.status];
   const priority = PRIORITY_CONFIG[task.priority];
 
   async function handleDelete() {
@@ -187,7 +187,7 @@ function TaskCard({
           <div className="tm-task-meta">
             <span className="tm-task-cat">{CATEGORY_OPTIONS.find(c => c.value === task.category)?.label ?? task.category}</span>
             {task.legalRef && <span className="tm-task-ref">⚖ {task.legalRef}</span>}
-            {task.dueDate  && <span className="tm-task-due">📅 {task.dueDate}</span>}
+            {task.dueDate && <span className="tm-task-due">📅 {task.dueDate}</span>}
           </div>
         </div>
         <button
@@ -221,11 +221,11 @@ function TaskCard({
 
 // ─── Stats bar ────────────────────────────────────────────
 function StatsBar({ tasks }: { readonly tasks: LegalTask[] }) {
-  const total    = tasks.length;
-  const done     = tasks.filter(t => t.status === 'done').length;
-  const flagged  = tasks.filter(t => t.status === 'flagged').length;
+  const total = tasks.length;
+  const done = tasks.filter(t => t.status === 'done').length;
+  const flagged = tasks.filter(t => t.status === 'flagged').length;
   const critical = tasks.filter(t => t.priority === 'critical').length;
-  const pct      = total > 0 ? Math.round((done / total) * 100) : 0;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
   return (
     <div className="tm-stats">
@@ -264,11 +264,11 @@ type FilterStatus = TaskStatus | 'all';
 
 // ─── Main TaskManager panel ───────────────────────────────
 export function TaskManager() {
-  const [tasks, setTasks]         = useState<LegalTask[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [fbError, setFbError]     = useState<string | null>(null);
-  const [showAdd, setShowAdd]     = useState(false);
-  const [filter, setFilter]       = useState<FilterStatus>('all');
+  const [tasks, setTasks] = useState<LegalTask[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [fbError, setFbError] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [filter, setFilter] = useState<FilterStatus>('all');
   const [filterPrio, setFilterPrio] = useState<TaskPriority | 'all'>('all');
 
   // Real-time Firestore subscription with LocalStorage fallback
@@ -288,7 +288,7 @@ export function TaskManager() {
     subscribeToTasks((t) => {
       if (t && t.length > 0) {
         setTasks(t);
-        try { localStorage.setItem('lawjourney_tasks', JSON.stringify(t)); } catch {}
+        try { localStorage.setItem('lawjourney_tasks', JSON.stringify(t)); } catch { }
       }
       setLoading(false);
     }).then(fn => {
@@ -296,7 +296,7 @@ export function TaskManager() {
     }).catch((e: unknown) => {
       setLoading(false);
       // Suppress blocking error banner; local tasks work seamlessly
-      console.log('Firestore connecting in offline/local mode:', e);
+      console.warn('Firestore connecting in offline/local mode:', e);
     });
     return () => { if (unsub) unsub(); };
   }, []);
@@ -308,12 +308,12 @@ export function TaskManager() {
     const newTask: LegalTask = {
       ...task,
       id: tempId,
-      createdAt: null as any,
-      updatedAt: null as any,
+      createdAt: null,
+      updatedAt: null,
     };
     setTasks(prev => {
       const next = [newTask, ...prev];
-      try { localStorage.setItem('lawjourney_tasks', JSON.stringify(next)); } catch {}
+      try { localStorage.setItem('lawjourney_tasks', JSON.stringify(next)); } catch { }
       return next;
     });
 
@@ -327,7 +327,7 @@ export function TaskManager() {
   const handleStatusChange = useCallback(async (id: string, status: TaskStatus) => {
     setTasks(prev => {
       const next = prev.map(t => t.id === id ? { ...t, status } : t);
-      try { localStorage.setItem('lawjourney_tasks', JSON.stringify(next)); } catch {}
+      try { localStorage.setItem('lawjourney_tasks', JSON.stringify(next)); } catch { }
       return next;
     });
 
@@ -341,7 +341,7 @@ export function TaskManager() {
   const handleDelete = useCallback(async (id: string) => {
     setTasks(prev => {
       const next = prev.filter(t => t.id !== id);
-      try { localStorage.setItem('lawjourney_tasks', JSON.stringify(next)); } catch {}
+      try { localStorage.setItem('lawjourney_tasks', JSON.stringify(next)); } catch { }
       return next;
     });
 
@@ -359,7 +359,7 @@ export function TaskManager() {
   });
 
   const activeTasks = filtered.filter(t => t.status !== 'done');
-  const doneTasks   = filtered.filter(t => t.status === 'done');
+  const doneTasks = filtered.filter(t => t.status === 'done');
 
   return (
     <div className="tm-root" aria-label="Legal task manager">

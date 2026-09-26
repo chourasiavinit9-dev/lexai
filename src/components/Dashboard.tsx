@@ -13,7 +13,7 @@ import {
 function timeAgo(ts: import('firebase/firestore').Timestamp | null): string {
   if (!ts) return '';
   const secs = Math.floor((Date.now() - ts.toMillis()) / 1000);
-  if (secs < 60)   return 'Just now';
+  if (secs < 60) return 'Just now';
   if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
   if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
   if (secs < 604800) return `${Math.floor(secs / 86400)}d ago`;
@@ -96,7 +96,7 @@ function ConversationRow({ conv }: { readonly conv: Conversation }) {
       <div className="db-row-content">
         <p className="db-row-title">{conv.title || 'Untitled conversation'}</p>
         {conv.lastMessage && (
-          <p className="db-row-sub">"{conv.lastMessage.slice(0, 80)}{conv.lastMessage.length > 80 ? '…' : ''}"</p>
+          <p className="db-row-sub">&ldquo;{conv.lastMessage.slice(0, 80)}{conv.lastMessage.length > 80 ? '…' : ''}&rdquo;</p>
         )}
       </div>
       <div className="db-row-meta">
@@ -184,9 +184,9 @@ interface DashboardProps {
 }
 
 export function Dashboard({ onSwitchTab }: DashboardProps) {
-  const [data, setData]       = useState<DashboardData | null>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     getDashboardData()
@@ -324,10 +324,10 @@ export function Dashboard({ onSwitchTab }: DashboardProps) {
             <div className="db-quick-actions">
               {[
                 { icon: '📄', label: 'Understand a document', tab: 'understand' },
-                { icon: '📷', label: 'Scan & OCR document',   tab: 'ocr' },
-                { icon: '💡', label: 'Clarify a clause',      tab: 'clarify' },
-                { icon: '✦',  label: 'Ask LAWJOURNEY AI',     tab: 'chat' },
-                { icon: '📋', label: 'My task checklist',     tab: 'tasks' },
+                { icon: '📷', label: 'Scan & OCR document', tab: 'ocr' },
+                { icon: '💡', label: 'Clarify a clause', tab: 'clarify' },
+                { icon: '✦', label: 'Ask LAWJOURNEY AI', tab: 'chat' },
+                { icon: '📋', label: 'My task checklist', tab: 'tasks' },
               ].map(a => (
                 <button
                   key={a.tab}

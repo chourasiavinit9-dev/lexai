@@ -143,6 +143,18 @@ export default function RootLayout({ children }: { readonly children: React.Reac
             }),
           }}
         />
+
+        {/* Animation pre-state script */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var d=document.documentElement;
+              if(!('animate' in Element.prototype))return;
+              if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+              d.classList.add('pre');
+              setTimeout(function(){d.classList.remove('pre')},4000);
+            })();`
+          }}
+        />
       </head>
       <body>
         <a href="#main-content" className="skip-link">Skip to main content</a>

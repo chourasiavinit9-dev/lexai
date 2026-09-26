@@ -17,7 +17,7 @@
 ## 📸 Visual Overview
 
 ### 1. Workspace Hero & Legal Intelligence Dashboard
-![LawJourney Hero Overview](./docs/images/hero-overview.png)
+![LawJourney Hero Overview](./public/hero-preview.png)
 
 ### 2. Dual-Mode Document Analyzer & Upload Dropzone
 Upload physical scans, photographs of stamp paper agreements, PDFs, or paste raw contract clauses:

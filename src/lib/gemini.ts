@@ -6,9 +6,7 @@ type GeminiPart = { text: string };
 type GeminiCandidate = { content: { parts: GeminiPart[] } };
 type GeminiResponse = { candidates: GeminiCandidate[] };
 
-/** Grounds every legal judgment in real, specific Indian law rather than
- *  vague "the law generally says" language. Reused across all four features
- *  so the model consistently reaches for the same body of statutes. */
+/** Grounds every legal judgment in real, specific Indian law. */
 const INDIAN_LAW_GROUNDING = `You are LexAI, an Indian legal-literacy assistant. Ground every legal
 judgment in REAL, SPECIFIC Indian law — never invent a law, section number, or case.
 When you reference law, draw from what is actually relevant, such as:
@@ -40,7 +38,6 @@ do not repeat it in every field.`;
 
 async function callGemini(prompt: string): Promise<string> {
   const apiKey = requireGeminiApiKey();
-
   const url = `${GEMINI_API_BASE}/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
   const res = await fetch(url, {
     method: 'POST',
@@ -54,12 +51,12 @@ async function callGemini(prompt: string): Promise<string> {
       },
     }),
   });
-
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`Gemini ${res.status}: ${body}`);
+    const err = new Error(`Gemini ${res.status}: ${body.slice(0, 200)}`);
+    (err as Error & { status?: number }).status = res.status;
+    throw err;
   }
-
   const data = (await res.json()) as GeminiResponse;
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('Empty Gemini response');

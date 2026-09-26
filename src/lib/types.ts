@@ -4,6 +4,8 @@
 // ────────────────────────────────────────────────────────────
 
 export type FeatureMode = 'dashboard' | 'understand' | 'ocr' | 'clarify' | 'compare' | 'navigate' | 'chat' | 'tasks';
+// Note: 'ocr' is an internal mode only. It is not a global navigation item.
+// OCR is integrated within the 'understand' (Analyze) workflow.
 
 export type RiskLevel = 'safe' | 'caution' | 'risky' | 'critical';
 

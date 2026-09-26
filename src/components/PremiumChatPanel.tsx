@@ -5,7 +5,7 @@ import { RobotSVG, type RobotState } from './RobotSVG';
 import { OCRUploader } from './OCRUploader';
 import { MAX_DOC_CHARS } from '@/lib/constants';
 import type { ChatMessage } from '@/lib/types';
-import type { ChatOutput, OCROutput } from '@/lib/validators';
+import type { ChatOutput } from '@/lib/validators';
 import { clientChat } from '@/lib/client-api';
 
 // ── Quick actions ────────────────────────────────────────────
@@ -236,7 +236,7 @@ export function PremiumChatPanel({ initialMessage, onInitialMessageConsumed, onC
       void sendMessage(initialMessage);
       onInitialMessageConsumed?.();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialMessage]);
 
   function handleInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -324,7 +324,7 @@ export function PremiumChatPanel({ initialMessage, onInitialMessageConsumed, onC
           <OCRUploader
             isLoading={isLoading}
             onLoadingChange={setIsLoading}
-            onResult={(_r: OCROutput) => { /* result rendered inside OCRUploader */ }}
+            onResult={() => { /* result rendered inside OCRUploader */ }}
             onAskAbout={(q) => {
               setTab('chat');
               void sendMessage(q);
